@@ -20,7 +20,7 @@ jobs:
 
   build:
 
-    uses: ./.github/workflows/build-firmware.yml
+    uses: ./.github/workflows/aa_build_firmware.yml
     with:
       qmk_version: '0.22.14'
       keyboard:    ${{ inputs.keyboard }}
