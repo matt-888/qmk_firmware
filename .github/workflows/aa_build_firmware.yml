@@ -41,7 +41,7 @@ jobs:
     - name: Make firmware
       run: |
         make keyball/${{ inputs.keyboard }}:${{ inputs.keymap }} -j8
-        cp /qmk_firmware/.build/*.uf2 /output/
+        cp .build/*.uf2 /output/
 
     - name: List files in .build
       run: |
