@@ -57,9 +57,8 @@ jobs:
         ls -la $GITHUB_WORKSPACE/.build
         ls -la $GITHUB_WORKSPACE
         pwd
-        echo ${{ github.workspace }}
         echo $GITHUB_WORKSPACE
-        ll -l /output
+        echo ${{ github.workspace }}
 
     - name: Archive built firmware
       uses: actions/upload-artifact@v5
