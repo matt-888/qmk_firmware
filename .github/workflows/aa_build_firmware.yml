@@ -29,7 +29,9 @@ jobs:
 
     - name: Checkout source
       uses: actions/checkout@v6
-
+      submodules: recursive
+      #ref: ${{ inputs.version }}
+      
     - name: List files in workspace
       run: ls -la $GITHUB_WORKSPACE
 
