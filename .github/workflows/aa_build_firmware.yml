@@ -47,3 +47,4 @@ jobs:
       with:
         name: ${{ inputs.keyboard }}-${{ inputs.keymap }}-firmware
         path: $GITHUB_WORKSPACE/.build/*.uf2
+        include-hidden-files: true
