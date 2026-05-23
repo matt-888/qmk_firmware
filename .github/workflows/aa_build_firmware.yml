@@ -40,11 +40,20 @@ jobs:
       run: make keyball/${{ inputs.keyboard }}:${{ inputs.keymap }} -j8
 
     - name: List files in .build
-      run: ls -la $GITHUB_WORKSPACE/.build
+      run: |
+        ls -la $GITHUB_WORKSPACE/.build
+        ls -la $GITHUB_WORKSPACE
 
     - name: Archive built firmware
       uses: actions/upload-artifact@v5
       with:
         name: ${{ inputs.keyboard }}-${{ inputs.keymap }}-firmware
         path: $GITHUB_WORKSPACE/.build/*.uf2
+        include-hidden-files: true
+
+    - name: Archive built firmware
+      uses: actions/upload-artifact@v5
+      with:
+        name: ${{ inputs.keyboard }}-${{ inputs.keymap }}-firmware
+        path: $GITHUB_WORKSPACE/keyball_keyball39_default.uf2
         include-hidden-files: true
