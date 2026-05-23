@@ -29,7 +29,8 @@ jobs:
 
     - name: Checkout source
       uses: actions/checkout@v6
-      submodules: recursive
+      with:
+        submodules: recursive
       #ref: ${{ inputs.version }}
       
     - name: List files in workspace
