@@ -24,8 +24,8 @@ jobs:
     runs-on: ubuntu-22.04
     container:
       image: ghcr.io/qmk/qmk_cli@sha256:2dc05fc9f32efebd6b05c2b8676ee548358bc7e151e9dbf4dac6b6eed4513b07
-      volumes:
-        - ${{ github.workspace }}/output:/output
+      #volumes:
+      #  - ${{ github.workspace }}/output:/output
 
     steps:
 
@@ -38,15 +38,20 @@ jobs:
     - name: Install missing python modules
       run: /usr/bin/python3 -m pip install -r $GITHUB_WORKSPACE/requirements.txt
 
+   # - name: Make firmware
+   #   run: |
+   #     make keyball/${{ inputs.keyboard }}:${{ inputs.keymap }} -j8
+   #     find / -name "*.uf2" 2>/dev/null
+   #     mount | grep output
+   #     pwd
+   #     mkdir -p /output/ ; cp /__w/qmk_firmware/qmk_firmware/.build/*.uf2 /output/
+
     - name: Make firmware
       run: |
         make keyball/${{ inputs.keyboard }}:${{ inputs.keymap }} -j8
-        find / -name "*.uf2" 2>/dev/null
-        mount | grep output
-        pwd
-        
-        mkdir -p /output/ ; cp /__w/qmk_firmware/qmk_firmware/.build/*.uf2 /output/
-
+        mkdir -p /__w/qmk_firmware/qmk_firmware/output
+        cp /__w/qmk_firmware/qmk_firmware/.build/*.uf2 /__w/qmk_firmware/qmk_firmware/output/
+    
     - name: List files in .build
       run: |
         ls -la $GITHUB_WORKSPACE/.build
@@ -61,6 +66,6 @@ jobs:
       uses: actions/upload-artifact@v5
       with:
         name: ${{ inputs.keyboard }}-${{ inputs.keymap }}-firmware
-        path: ${{ github.workspace }}/output/*.uf2
+        path: /__w/qmk_firmware/qmk_firmware/.build/*.uf2
         include-hidden-files: true
 
