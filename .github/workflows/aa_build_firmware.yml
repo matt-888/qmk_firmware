@@ -43,7 +43,9 @@ jobs:
         make keyball/${{ inputs.keyboard }}:${{ inputs.keymap }} -j8
         find / -name "*.uf2" 2>/dev/null
         mount | grep output
-        mkdir -p /output/ ; cp ./*.uf2 /output/
+        pwd
+        
+        mkdir -p /output/ ; cp /__w/qmk_firmware/qmk_firmware/.build/*.uf2 /output/
 
     - name: List files in .build
       run: |
