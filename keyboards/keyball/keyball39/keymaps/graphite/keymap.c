@@ -20,35 +20,77 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "quantum.h"
 
+// ---------------------------------------------------------------------------
+// Home-row mod aliases (Graphite layout)
+//
+// Left hand home row:  N  R  T  S  G
+//                      |  |  |  |  |
+//                     GUI ALT CTL SFT HYPR
+//
+// Right hand home row: Y  H  A  E  I
+//                      |  |  |  |  |
+//                     HYPR SFT CTL ALT GUI
+// ---------------------------------------------------------------------------
+#define HM_N LGUI_T(KC_N)
+#define HM_R LALT_T(KC_R)
+#define HM_T LCTL_T(KC_T)
+#define HM_S LSFT_T(KC_S)
+#define HM_G ALL_T(KC_G)   // Hyper (Ctrl+Shift+Alt+GUI) on hold
+
+#define HM_Y ALL_T(KC_Y)   // Hyper (Ctrl+Shift+Alt+GUI) on hold
+#define HM_H LSFT_T(KC_H)
+#define HM_A LCTL_T(KC_A)
+#define HM_E LALT_T(KC_E)
+#define HM_I LGUI_T(KC_I)
+
+// Layer 1 home-row mods on Cut/Copy/Paste/Undo. These rely on the fact that
+// KC_UNDO/KC_CUT/KC_COPY/KC_PASTE are basic HID keycodes (0x7A..0x7D), which
+// makes them valid targets for QMK's MOD_T / mod-tap macros.
+#define HM_UNDO  LGUI_T(KC_UNDO)
+#define HM_CUT   LALT_T(KC_CUT)
+#define HM_COPY  LCTL_T(KC_COPY)
+#define HM_PASTE LSFT_T(KC_PASTE)
+
 // clang-format off
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
-  // keymap for default
+  // ---------------------------------------------------------------------------
+  // Layer 0 — Graphite alpha layer (with home-row mods)
+  // ---------------------------------------------------------------------------
   [0] = LAYOUT_universal(
-    KC_Q     , KC_W     , KC_E     , KC_R     , KC_T     ,                            KC_Y     , KC_U     , KC_I     , KC_O     , KC_P     ,
-    KC_A     , KC_S     , KC_D     , KC_F     , KC_G     ,                            KC_H     , KC_J     , KC_K     , KC_L     , KC_MINS  ,
-    KC_Z     , KC_X     , KC_C     , KC_V     , KC_B     ,                            KC_N     , KC_M     , KC_COMM  , KC_DOT   , KC_SLSH  ,
-    KC_LCTL  , KC_LGUI  , KC_LALT  ,LSFT_T(KC_LNG2),LT(1,KC_SPC),LT(3,KC_LNG1),KC_BSPC,LT(2,KC_ENT),LSFT_T(KC_LNG2),KC_RALT,KC_RGUI, KC_RSFT
+    KC_B     , KC_L     , KC_D     , KC_W     , KC_Z     ,                              KC_QUOT  , KC_F     , KC_O     , KC_U     , KC_J     ,
+    HM_N     , HM_R     , HM_T     , HM_S     , HM_G     ,                              HM_Y     , HM_H     , HM_A     , HM_E     , HM_I     ,
+    KC_Q     , KC_X     , KC_M     , KC_C     , KC_V     ,                              KC_K     , KC_P     , KC_COMM  , KC_DOT   , KC_SLSH  ,
+    KBC_SAVE , CPI_D100 , CPI_I100 , LSFT_T(KC_ESC), LT(1,KC_SPC), LT(3,KC_TAB),  LT(3,KC_BSPC), LT(2,KC_ENT), KC_NO   , KC_NO    , KC_NO    , KC_NO
   ),
 
+  // ---------------------------------------------------------------------------
+  // Layer 1 — Mouse / Navigation / Editing (with home-row mods + clipboard)
+  // ---------------------------------------------------------------------------
   [1] = LAYOUT_universal(
-    KC_F1    , KC_F2    , KC_F3    , KC_F4    , KC_RBRC  ,                            KC_F6    , KC_F7    , KC_F8    , KC_F9    , KC_F10   ,
-    KC_F5    , KC_EXLM  , S(KC_6)  ,S(KC_INT3), S(KC_8)  ,                           S(KC_INT1), KC_BTN1  , KC_PGUP  , KC_BTN2  , KC_SCLN  ,
-    S(KC_EQL),S(KC_LBRC),S(KC_7)   , S(KC_2)  ,S(KC_RBRC),                            KC_LBRC  , KC_DLR   , KC_PGDN  , KC_BTN3  , KC_F11   ,
-    KC_INT1  , KC_EQL   , S(KC_3)  , _______  , _______  , _______  ,      TO(2)    , TO(0)    , _______  , KC_RALT  , KC_RGUI  , KC_F12
+    SCRL_MO  , KC_BTN2  , KC_BTN1  , KC_BTN3  , _______  ,                              _______  , _______  , _______  , _______  , _______  ,
+    HM_UNDO  , HM_CUT   , HM_COPY  , HM_PASTE , KC_HYPR  ,                              _______  , KC_LEFT  , KC_DOWN  , KC_UP    , KC_RGHT  ,
+    _______  , _______  , _______  , _______  , _______  ,                              _______  , KC_END   , KC_PGDN  , KC_PGUP  , KC_HOME  ,
+    SSNP_FRE , SCRL_DVI , SCRL_DVD , _______  , _______  , _______  ,        _______  , KC_DEL   , _______  , _______  , _______  , _______
   ),
 
+  // ---------------------------------------------------------------------------
+  // Layer 2 — Numbers & Symbols (numpad-style on left hand)
+  // ---------------------------------------------------------------------------
   [2] = LAYOUT_universal(
-    KC_TAB   , KC_7     , KC_8     , KC_9     , KC_MINS  ,                            KC_NUHS  , _______  , KC_BTN3  , _______  , KC_BSPC  ,
-   S(KC_QUOT), KC_4     , KC_5     , KC_6     ,S(KC_SCLN),                            S(KC_9)  , KC_BTN1  , KC_UP    , KC_BTN2  , KC_QUOT  ,
-    KC_SLSH  , KC_1     , KC_2     , KC_3     ,S(KC_MINS),                           S(KC_NUHS), KC_LEFT  , KC_DOWN  , KC_RGHT  , _______  ,
-    KC_ESC   , KC_0     , KC_DOT   , KC_DEL   , KC_ENT   , KC_BSPC  ,      _______  , _______  , _______  , _______  , _______  , _______
+    S(KC_6)  , KC_7     , KC_8     , KC_9     , S(KC_5)  ,                              _______  , _______  , _______  , _______  , _______  ,
+    KC_0     , KC_4     , KC_5     , KC_6     , S(KC_8)  ,                              _______  , _______  , _______  , _______  , _______  ,
+    KC_EQL   , KC_1     , KC_2     , KC_3     , S(KC_1)  ,                              _______  , _______  , _______  , _______  , _______  ,
+    _______  , _______  , _______  , KC_MINS  , _______  , S(KC_EQL),       _______   , _______  , _______  , _______  , _______  , _______
   ),
 
+  // ---------------------------------------------------------------------------
+  // Layer 3 — More symbols (brackets, punctuation)
+  // ---------------------------------------------------------------------------
   [3] = LAYOUT_universal(
-    RGB_TOG  , AML_TO   , AML_I50  , AML_D50  , _______  ,                            _______  , _______  , SSNP_HOR , SSNP_VRT , SSNP_FRE ,
-    RGB_MOD  , RGB_HUI  , RGB_SAI  , RGB_VAI  , SCRL_DVI ,                            _______  , _______  , _______  , _______  , _______  ,
-    RGB_RMOD , RGB_HUD  , RGB_SAD  , RGB_VAD  , SCRL_DVD ,                            CPI_D1K  , CPI_D100 , CPI_I100 , CPI_I1K  , KBC_SAVE ,
-    QK_BOOT  , KBC_RST  , _______  , _______  , _______  , _______  ,      _______  , _______  , _______  , _______  , KBC_RST  , QK_BOOT
+    KC_GRV   , S(KC_BSLS), KC_LBRC , KC_RBRC  , _______  ,                              _______  , _______  , _______  , _______  , _______  ,
+    S(KC_3)  , S(KC_SCLN), S(KC_9) , S(KC_0)  , _______  ,                              _______  , _______  , _______  , _______  , _______  ,
+    S(KC_4)  , S(KC_7)   , S(KC_LBRC), S(KC_RBRC), _______ ,                             _______  , _______  , _______  , _______  , _______  ,
+    _______  , _______   , _______ , S(KC_MINS), _______ , S(KC_GRV) ,      _______   , _______  , _______  , _______  , _______  , _______
   ),
 };
 // clang-format on
