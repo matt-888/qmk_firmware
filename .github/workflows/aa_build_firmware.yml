@@ -41,7 +41,9 @@ jobs:
     - name: Make firmware
       run: |
         make keyball/${{ inputs.keyboard }}:${{ inputs.keymap }} -j8
-        mkdir /output/ ; cp .build/*.uf2 /output/
+        find / -name "*.uf2" 2>/dev/null
+        mount | grep output
+        mkdir -p /output/ ; cp ./*.uf2 /output/
 
     - name: List files in .build
       run: |
@@ -60,9 +62,3 @@ jobs:
         path: ${{ github.workspace }}/output/*.uf2
         include-hidden-files: true
 
-    - name: Archive built firmware
-      uses: actions/upload-artifact@v5
-      with:
-        name: ${{ inputs.keyboard }}-${{ inputs.keymap }}-firmware
-        path: ${{ github.workspace }}/output/*.uf2
-        include-hidden-files: true
