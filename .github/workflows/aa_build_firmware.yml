@@ -36,11 +36,14 @@ jobs:
     - name: Install missing python modules
       run: /usr/bin/python3 -m pip install -r $GITHUB_WORKSPACE/requirements.txt
 
-    - name: Compile and link
+    - name: Make firmware
       run: make keyball/${{ inputs.keyboard }}:${{ inputs.keymap }} -j8
+
+    - name: List files in .build
+      run: ls -la $GITHUB_WORKSPACE/.build
 
     - name: Archive built firmware
       uses: actions/upload-artifact@v5
       with:
         name: ${{ inputs.keyboard }}-${{ inputs.keymap }}-firmware
-        path: $GITHUB_WORKSPACE/*.uf2
+        path: $GITHUB_WORKSPACE/.build/*.uf2
