@@ -101,6 +101,81 @@ layer_state_t layer_state_set_user(layer_state_t state) {
     return state;
 }
 
+// ---------------------------------------------------------------------------
+// Scroll direction override.
+//
+// The default `keyball_on_apply_motion_to_mouse_scroll` in lib/keyball/keyball.c
+// is declared with __attribute__((weak)), which means we can override it here
+// to customise scroll behaviour without modifying the upstream library.
+//
+// The defaults flip horizontal scroll relative to ball motion (and then flip
+// both axes again for the left-hand ball). With macOS-style "natural"
+// scrolling enabled at the OS level this can feel inverted on both axes.
+//
+// Set these macros to 1 in config.h (or here) to flip a given axis. Tweak
+// until both vertical and horizontal feel right for your setup.
+// ---------------------------------------------------------------------------
+#ifndef KEYBALL_SCROLL_INVERT_V
+#    define KEYBALL_SCROLL_INVERT_V 1
+#endif
+#ifndef KEYBALL_SCROLL_INVERT_H
+#    define KEYBALL_SCROLL_INVERT_H 0
+#endif
+
+// Sub-divisor scroll accumulators.
+//
+// The upstream implementation calls divmod16(&report->x, div) and then the
+// caller (motion_to_mouse) zeroes report->x / report->y unconditionally. That
+// means any remainder smaller than `div` is discarded each poll, so slow ball
+// motion never produces scroll events at all (the quotient is always 0 and
+// the leftover never accumulates). We work around it by keeping our own
+// residual accumulator per-side and per-axis, so slow movement adds up over
+// time.
+static int16_t scroll_accum_h[2] = {0, 0};
+static int16_t scroll_accum_v[2] = {0, 0};
+
+static inline int8_t clamp_int8(int16_t v) {
+    if (v >  127) return  127;
+    if (v < -127) return -127;
+    return (int8_t)v;
+}
+
+void keyball_on_apply_motion_to_mouse_scroll(report_mouse_t *report, report_mouse_t *output, bool is_left) {
+    uint8_t side = is_left ? 0 : 1;
+
+    // Accumulate raw ball motion. Don't divmod against report directly,
+    // because the caller zeroes report afterwards and we'd lose the remainder.
+    scroll_accum_h[side] += report->x;
+    scroll_accum_v[side] += report->y;
+    report->x = 0;
+    report->y = 0;
+
+    int16_t div = 1 << (keyball_get_scroll_div() - 1);
+    int16_t x   = scroll_accum_h[side] / div;
+    int16_t y   = scroll_accum_v[side] / div;
+    scroll_accum_h[side] -= x * div;
+    scroll_accum_v[side] -= y * div;
+
+    // Default mapping (matches upstream for keyball39).
+    int8_t h = -clamp_int8(x);
+    int8_t v =  clamp_int8(y);
+    if (is_left) {
+        h = -h;
+        v = -v;
+    }
+
+    // Per-axis user inversion.
+#if KEYBALL_SCROLL_INVERT_H
+    h = -h;
+#endif
+#if KEYBALL_SCROLL_INVERT_V
+    v = -v;
+#endif
+
+    output->h = h;
+    output->v = v;
+}
+
 #ifdef OLED_ENABLE
 
 #    include "lib/oledkit/oledkit.h"
