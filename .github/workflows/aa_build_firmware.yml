@@ -56,7 +56,6 @@ jobs:
       run: |
         ls -la $GITHUB_WORKSPACE/.build
         ls -la $GITHUB_WORKSPACE
-        /usr/bin/docker ps -a
         pwd
         echo ${{ github.workspace }}
         echo $GITHUB_WORKSPACE
