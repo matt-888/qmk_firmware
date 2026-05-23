@@ -20,32 +20,19 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "quantum.h"
 
-// ---------------------------------------------------------------------------
-// Home-row mod aliases (Graphite layout)
-//
-// Left hand home row:  N  R  T  S  G
-//                      |  |  |  |  |
-//                     GUI ALT CTL SFT HYPR
-//
-// Right hand home row: Y  H  A  E  I
-//                      |  |  |  |  |
-//                     HYPR SFT CTL ALT GUI
-// ---------------------------------------------------------------------------
+// Home-row mods: GUI / Alt / Ctrl / Shift / Hyper from outside in.
 #define HM_N LGUI_T(KC_N)
 #define HM_R LALT_T(KC_R)
 #define HM_T LCTL_T(KC_T)
 #define HM_S LSFT_T(KC_S)
-#define HM_G ALL_T(KC_G)   // Hyper (Ctrl+Shift+Alt+GUI) on hold
-
-#define HM_Y ALL_T(KC_Y)   // Hyper (Ctrl+Shift+Alt+GUI) on hold
+#define HM_G ALL_T(KC_G)
+#define HM_Y ALL_T(KC_Y)
 #define HM_H LSFT_T(KC_H)
 #define HM_A LCTL_T(KC_A)
 #define HM_E LALT_T(KC_E)
 #define HM_I LGUI_T(KC_I)
 
-// Layer 1 home-row mods on Cut/Copy/Paste/Undo. These rely on the fact that
-// KC_UNDO/KC_CUT/KC_COPY/KC_PASTE are basic HID keycodes (0x7A..0x7D), which
-// makes them valid targets for QMK's MOD_T / mod-tap macros.
+// Layer 1 clipboard keys with home-row mods.
 #define HM_UNDO  LGUI_T(KC_UNDO)
 #define HM_CUT   LALT_T(KC_CUT)
 #define HM_COPY  LCTL_T(KC_COPY)
@@ -53,9 +40,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 // clang-format off
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
-  // ---------------------------------------------------------------------------
-  // Layer 0 — Graphite alpha layer (with home-row mods)
-  // ---------------------------------------------------------------------------
+  // Layer 0 — Graphite alphas with home-row mods.
   [0] = LAYOUT_universal(
     KC_B     , KC_L     , KC_D     , KC_W     , KC_Z     ,                              KC_QUOT  , KC_F     , KC_O     , KC_U     , KC_J     ,
     HM_N     , HM_R     , HM_T     , HM_S     , HM_G     ,                              HM_Y     , HM_H     , HM_A     , HM_E     , HM_I     ,
@@ -63,9 +48,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     KBC_SAVE , CPI_D100 , CPI_I100 , LSFT_T(KC_ESC), LT(1,KC_SPC), LT(3,KC_TAB),  LT(3,KC_BSPC), LT(2,KC_ENT), KC_NO   , KC_NO    , KC_NO    , KC_NO
   ),
 
-  // ---------------------------------------------------------------------------
-  // Layer 1 — Mouse / Navigation / Editing (with home-row mods + clipboard)
-  // ---------------------------------------------------------------------------
+  // Layer 1 — Mouse, navigation, clipboard.
   [1] = LAYOUT_universal(
     SCRL_MO  , KC_BTN2  , KC_BTN1  , KC_BTN3  , _______  ,                              _______  , _______  , _______  , _______  , _______  ,
     HM_UNDO  , HM_CUT   , HM_COPY  , HM_PASTE , KC_HYPR  ,                              _______  , KC_LEFT  , KC_DOWN  , KC_UP    , KC_RGHT  ,
@@ -73,9 +56,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     SSNP_FRE , SCRL_DVI , SCRL_DVD , _______  , _______  , _______  ,        _______  , KC_DEL   , _______  , _______  , _______  , _______
   ),
 
-  // ---------------------------------------------------------------------------
-  // Layer 2 — Numbers & Symbols (numpad-style on left hand)
-  // ---------------------------------------------------------------------------
+  // Layer 2 — Numpad and common symbols.
   [2] = LAYOUT_universal(
     S(KC_6)  , KC_7     , KC_8     , KC_9     , S(KC_5)  ,                              _______  , _______  , _______  , _______  , _______  ,
     KC_0     , KC_4     , KC_5     , KC_6     , S(KC_8)  ,                              _______  , _______  , _______  , _______  , _______  ,
@@ -83,9 +64,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     _______  , _______  , _______  , KC_MINS  , _______  , S(KC_EQL),       _______   , _______  , _______  , _______  , _______  , _______
   ),
 
-  // ---------------------------------------------------------------------------
-  // Layer 3 — More symbols (brackets, punctuation)
-  // ---------------------------------------------------------------------------
+  // Layer 3 — Brackets and remaining punctuation.
   [3] = LAYOUT_universal(
     KC_GRV   , S(KC_BSLS), KC_LBRC , KC_RBRC  , _______  ,                              _______  , _______  , _______  , _______  , _______  ,
     S(KC_3)  , S(KC_SCLN), S(KC_9) , S(KC_0)  , _______  ,                              _______  , _______  , _______  , _______  , _______  ,
@@ -101,79 +80,28 @@ layer_state_t layer_state_set_user(layer_state_t state) {
     return state;
 }
 
-// ---------------------------------------------------------------------------
-// Scroll direction override.
+// Override the upstream weak scroll handler.
 //
-// The default `keyball_on_apply_motion_to_mouse_scroll` in lib/keyball/keyball.c
-// is declared with __attribute__((weak)), which means we can override it here
-// to customise scroll behaviour without modifying the upstream library.
+// We keep our own residual accumulator because the upstream caller zeroes the
+// per-poll motion report after this function returns, which would otherwise
+// discard any motion smaller than the scroll divisor and break slow scrolling.
 //
-// The defaults flip horizontal scroll relative to ball motion (and then flip
-// both axes again for the left-hand ball). With macOS-style "natural"
-// scrolling enabled at the OS level this can feel inverted on both axes.
-//
-// Set these macros to 1 in config.h (or here) to flip a given axis. Tweak
-// until both vertical and horizontal feel right for your setup.
-// ---------------------------------------------------------------------------
-#ifndef KEYBALL_SCROLL_INVERT_V
-#    define KEYBALL_SCROLL_INVERT_V 1
-#endif
-#ifndef KEYBALL_SCROLL_INVERT_H
-#    define KEYBALL_SCROLL_INVERT_H 0
-#endif
-
-// Sub-divisor scroll accumulators.
-//
-// The upstream implementation calls divmod16(&report->x, div) and then the
-// caller (motion_to_mouse) zeroes report->x / report->y unconditionally. That
-// means any remainder smaller than `div` is discarded each poll, so slow ball
-// motion never produces scroll events at all (the quotient is always 0 and
-// the leftover never accumulates). We work around it by keeping our own
-// residual accumulator per-side and per-axis, so slow movement adds up over
-// time.
-static int16_t scroll_accum_h[2] = {0, 0};
-static int16_t scroll_accum_v[2] = {0, 0};
-
-static inline int8_t clamp_int8(int16_t v) {
-    if (v >  127) return  127;
-    if (v < -127) return -127;
-    return (int8_t)v;
-}
+// Both axes are inverted from the upstream defaults to match natural scrolling.
+static int16_t scroll_accum_x = 0;
+static int16_t scroll_accum_y = 0;
 
 void keyball_on_apply_motion_to_mouse_scroll(report_mouse_t *report, report_mouse_t *output, bool is_left) {
-    uint8_t side = is_left ? 0 : 1;
-
-    // Accumulate raw ball motion. Don't divmod against report directly,
-    // because the caller zeroes report afterwards and we'd lose the remainder.
-    scroll_accum_h[side] += report->x;
-    scroll_accum_v[side] += report->y;
-    report->x = 0;
-    report->y = 0;
+    scroll_accum_x += report->x;
+    scroll_accum_y += report->y;
 
     int16_t div = 1 << (keyball_get_scroll_div() - 1);
-    int16_t x   = scroll_accum_h[side] / div;
-    int16_t y   = scroll_accum_v[side] / div;
-    scroll_accum_h[side] -= x * div;
-    scroll_accum_v[side] -= y * div;
+    int16_t x   = scroll_accum_x / div;
+    int16_t y   = scroll_accum_y / div;
+    scroll_accum_x -= x * div;
+    scroll_accum_y -= y * div;
 
-    // Default mapping (matches upstream for keyball39).
-    int8_t h = -clamp_int8(x);
-    int8_t v =  clamp_int8(y);
-    if (is_left) {
-        h = -h;
-        v = -v;
-    }
-
-    // Per-axis user inversion.
-#if KEYBALL_SCROLL_INVERT_H
-    h = -h;
-#endif
-#if KEYBALL_SCROLL_INVERT_V
-    v = -v;
-#endif
-
-    output->h = h;
-    output->v = v;
+    output->h = (x > 127) ? 127 : (x < -127) ? -127 : x;
+    output->v = (y > 127) ? 127 : (y < -127) ? -127 : -y;
 }
 
 #ifdef OLED_ENABLE
