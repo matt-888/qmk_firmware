@@ -14,7 +14,7 @@ on:
         description: 'Keymap'
         required: true
         type: string
-        default: 'default'
+        default: 'graphite'
 
 jobs:
 
