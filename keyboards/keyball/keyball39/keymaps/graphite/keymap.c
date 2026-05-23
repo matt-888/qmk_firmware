@@ -74,10 +74,15 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 };
 // clang-format on
 
-layer_state_t layer_state_set_user(layer_state_t state) {
-    // Auto enable scroll mode when the highest layer is 3
-    keyball_set_scroll_mode(get_highest_layer(state) == 3);
-    return state;
+// Morph LCtrl+I into LCtrl+K (only when LCtrl is the sole active modifier).
+bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+    if (keycode == HM_I && record->tap.count > 0 && record->event.pressed) {
+        if (get_mods() == MOD_BIT(KC_LCTL)) {
+            tap_code(KC_K);
+            return false;
+        }
+    }
+    return true;
 }
 
 // Override the upstream weak scroll handler.
@@ -103,14 +108,3 @@ void keyball_on_apply_motion_to_mouse_scroll(report_mouse_t *report, report_mous
     output->h = (x > 127) ? 127 : (x < -127) ? -127 : x;
     output->v = (y > 127) ? 127 : (y < -127) ? -127 : -y;
 }
-
-#ifdef OLED_ENABLE
-
-#    include "lib/oledkit/oledkit.h"
-
-void oledkit_render_info_user(void) {
-    keyball_oled_render_keyinfo();
-    keyball_oled_render_ballinfo();
-    keyball_oled_render_layerinfo();
-}
-#endif
