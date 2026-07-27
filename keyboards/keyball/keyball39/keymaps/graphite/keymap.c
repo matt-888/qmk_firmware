@@ -53,7 +53,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
   // Layer 1 — Mouse, navigation, clipboard.
   [1] = LAYOUT_universal(
-    SCRL_MO  , KC_BTN2  , KC_BTN1  , KC_BTN3  , PR_Z     ,                              _______  , _______  , _______  , _______  , _______  ,
+    SCRL_MO  , MS_BTN2  , MS_BTN1  , MS_BTN3  , PR_Z     ,                              _______  , _______  , _______  , _______  , _______  ,
     HM_UNDO  , HM_CUT   , HM_COPY  , HM_PASTE , KC_HYPR  ,                              _______  , KC_LEFT  , KC_DOWN  , KC_UP    , KC_RGHT  ,
     _______  , _______  , _______  , _______  , _______  ,                              _______  , KC_END   , KC_PGDN  , KC_PGUP  , KC_HOME  ,
     SSNP_FRE , SCRL_DVI , SCRL_DVD , _______  , _______  , _______  ,        _______  , KC_DEL   , _______  , _______  , _______  , _______
