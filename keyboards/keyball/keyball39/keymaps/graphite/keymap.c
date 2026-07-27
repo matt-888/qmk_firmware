@@ -38,6 +38,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define HM_COPY  LCTL_T(KC_COPY)
 #define HM_PASTE LSFT_T(KC_PASTE)
 
+// Tap Z; hold on layer 1 for half-speed pointer movement.
+#define PR_Z LT(4, KC_Z)
+
 // clang-format off
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
   // Layer 0 — Graphite alphas with home-row mods.
@@ -50,7 +53,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
   // Layer 1 — Mouse, navigation, clipboard.
   [1] = LAYOUT_universal(
-    SCRL_MO  , KC_BTN2  , KC_BTN1  , KC_BTN3  , _______  ,                              _______  , _______  , _______  , _______  , _______  ,
+    SCRL_MO  , KC_BTN2  , KC_BTN1  , KC_BTN3  , PR_Z     ,                              _______  , _______  , _______  , _______  , _______  ,
     HM_UNDO  , HM_CUT   , HM_COPY  , HM_PASTE , KC_HYPR  ,                              _______  , KC_LEFT  , KC_DOWN  , KC_UP    , KC_RGHT  ,
     _______  , _______  , _______  , _______  , _______  ,                              _______  , KC_END   , KC_PGDN  , KC_PGUP  , KC_HOME  ,
     SSNP_FRE , SCRL_DVI , SCRL_DVD , _______  , _______  , _______  ,        _______  , KC_DEL   , _______  , _______  , _______  , _______
@@ -71,11 +74,31 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     S(KC_4)  , S(KC_2)   , S(KC_7)  , S(KC_LBRC), S(KC_RBRC),                             _______  , _______  , _______  , _______  , _______  ,
     _______  , _______   , _______  , S(KC_MINS), _______ , S(KC_GRV) ,      _______   , _______  , _______  , _______  , _______  , _______
   ),
+
+  // Layer 4 — Precision-pointer hold layer; all keys remain transparent.
+  [4] = LAYOUT_universal(
+    _______  , _______  , _______  , _______  , _______  ,                              _______  , _______  , _______  , _______  , _______  ,
+    _______  , _______  , _______  , _______  , _______  ,                              _______  , _______  , _______  , _______  , _______  ,
+    _______  , _______  , _______  , _______  , _______  ,                              _______  , _______  , _______  , _______  , _______  ,
+    _______  , _______  , _______  , _______  , _______  , _______  ,        _______  , _______  , _______  , _______  , _______  , _______
+  ),
 };
 // clang-format on
 
+static bool    precision_mode    = false;
+static int16_t precision_accum_x = 0;
+static int16_t precision_accum_y = 0;
+
 // Morph LCtrl+I into LCtrl+K (only when LCtrl is the sole active modifier).
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+    if (keycode == PR_Z) {
+        precision_mode = record->event.pressed;
+        if (!precision_mode) {
+            precision_accum_x = 0;
+            precision_accum_y = 0;
+        }
+    }
+
     if (keycode == HM_I && record->tap.count > 0 && record->event.pressed) {
         if (get_mods() == MOD_BIT(KC_LCTL)) {
             tap_code(KC_K);
@@ -83,6 +106,23 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
         }
     }
     return true;
+}
+
+void keyball_on_apply_motion_to_mouse_move(report_mouse_t *report, report_mouse_t *output, bool is_left) {
+    if (!precision_mode) {
+        output->x = report->x;
+        output->y = report->y;
+        return;
+    }
+
+    // Retain odd motion counts so half-speed movement remains smooth.
+    precision_accum_x += report->x;
+    precision_accum_y += report->y;
+    output->x = precision_accum_x / 2;
+    output->y = precision_accum_y / 2;
+    precision_accum_x -= output->x * 2;
+    precision_accum_y -= output->y * 2;
+    (void)is_left;
 }
 
 // Override the upstream weak scroll handler.
