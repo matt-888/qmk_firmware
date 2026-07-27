@@ -64,16 +64,18 @@ __attribute__((weak)) void keyball_on_adjust_layout(keyball_adjust_t v) {}
 
 // divmod16 divides *v by div, returns the quotient, and assigns the remainder
 // to *v.
-static mouse_xy_report_t divmod16(mouse_xy_report_t *v, int16_t div) {
-    mouse_xy_report_t r = *v / div;
+static int16_t divmod16(int16_t *v, int16_t div) {
+    int16_t r = *v / div;
     *v -= r * div;
     return r;
 }
 
+#ifndef POINTING_DEVICE_HIRES_SCROLL_ENABLE
 // clip2int8 clips an integer fit into int8_t.
 static inline int8_t clip2int8(int16_t v) {
     return (v) < -127 ? -127 : (v) > 127 ? 127 : (int8_t)v;
 }
+#endif
 
 #ifdef OLED_ENABLE
 static const char *format_4d(int16_t d) {
@@ -157,23 +159,59 @@ __attribute__((weak)) void keyball_on_apply_motion_to_mouse_move(report_mouse_t 
 }
 
 __attribute__((weak)) void keyball_on_apply_motion_to_mouse_scroll(report_mouse_t *report, report_mouse_t *output, bool is_left) {
+#ifdef POINTING_DEVICE_HIRES_SCROLL_ENABLE
+    // With hires scrolling each tick is 1/120 of a line.  The scroll
+    // divider (1-7) is mapped so that the default (4) is 1:1 passthrough,
+    // lower values multiply (faster), higher values divide (slower):
+    //
+    //   div | effect | direction
+    //   ----+--------+----------
+    //    1  |  ×4    | fastest
+    //    2  |  ×3    |
+    //    3  |  ×2    | default (hires)
+    //    4  |  ×1    |
+    //    5  |  ÷2    |
+    //    6  |  ÷3    |
+    //    7  |  ÷4    | slowest
+    //
+    // SCRL_DVD (decrease) → faster, SCRL_DVI (increase) → slower.
+    int16_t sdiv = keyball_get_scroll_div();
+    int16_t mx = report->x;
+    int16_t my = report->y;
+    int16_t x, y;
+    if (sdiv >= 4) {
+        int16_t d = sdiv - 3; // 4→1, 5→2, 6→3, 7→4
+        x = divmod16(&mx, d);
+        y = divmod16(&my, d);
+        report->x = mx;
+        report->y = my;
+    } else {
+        int16_t mul = 5 - sdiv; // 1→4, 2→3, 3→2
+        x = mx * mul;
+        y = my * mul;
+        report->x = 0;
+        report->y = 0;
+    }
+#else
     // consume motion of trackball.
     int16_t div = 1 << (keyball_get_scroll_div() - 1);
-    int16_t x = divmod16(&report->x, div);
-    int16_t y = divmod16(&report->y, div);
-
-    // apply to mouse report.
-#if KEYBALL_MODEL == 61 || KEYBALL_MODEL == 39 || KEYBALL_MODEL == 147 || KEYBALL_MODEL == 44
-    output->h = -clip2int8(x);
-    output->v = clip2int8(y);
-    if (is_left) {
-        output->h = -output->h;
-        output->v = -output->v;
-    }
-
-#else
-#    error("unknown Keyball model")
+    // Copy out of packed struct to avoid unaligned pointer access.
+    int16_t mx = report->x;
+    int16_t my = report->y;
+    int16_t x = divmod16(&mx, div);
+    int16_t y = divmod16(&my, div);
+    report->x = mx;
+    report->y = my;
 #endif
+
+    // apply to mouse report. The input is already in screen coordinates
+    // (+x right, +y down) — the core rotation/invert defines normalize both
+    // halves before this hook runs — while wheel semantics are +v up, +h
+    // right. So flip y for v and take x as-is for h, with no per-side
+    // adjustment.
+    output->h = x;
+    output->v = -y;
+    (void)is_left;
 
     // Scroll snapping
 #if KEYBALL_SCROLLSNAP_ENABLE == 1
@@ -204,24 +242,32 @@ __attribute__((weak)) void keyball_on_apply_motion_to_mouse_scroll(report_mouse_
 #endif
 }
 
-static void motion_to_mouse(report_mouse_t *report, report_mouse_t *output, bool is_left, bool as_scroll) {
+static void motion_to_mouse(keyball_motion_t *scroll_accum, report_mouse_t *report, report_mouse_t *output, bool is_left, bool as_scroll) {
     if (as_scroll) {
-        keyball_on_apply_motion_to_mouse_scroll(report, output, is_left);
+        // Accumulate incoming motion into persistent scroll accumulator
+        // so that sub-divider remainder is preserved across cycles.
+        scroll_accum->x += report->x;
+        scroll_accum->y += report->y;
+        report_mouse_t scroll_input = {0};
+        scroll_input.x = scroll_accum->x;
+        scroll_input.y = scroll_accum->y;
+        keyball_on_apply_motion_to_mouse_scroll(&scroll_input, output, is_left);
+        // divmod16 stores remainder back in scroll_input.x/y.
+        scroll_accum->x = scroll_input.x;
+        scroll_accum->y = scroll_input.y;
     } else {
+        scroll_accum->x = 0;
+        scroll_accum->y = 0;
         keyball_on_apply_motion_to_mouse_move(report, output, is_left);
     }
-
-    // clear motion
-    report->x = 0;
-    report->y = 0;
 }
 
 report_mouse_t pointing_device_task_combined_kb(report_mouse_t left_report, report_mouse_t right_report) {
     report_mouse_t output = {0};
     report_mouse_t *this_report = is_keyboard_left() ? &left_report : &right_report;
     report_mouse_t *that_report = is_keyboard_left() ? &right_report : &left_report;
-    motion_to_mouse(this_report, &output, is_keyboard_left(), keyball.scroll_mode);
-    motion_to_mouse(that_report, &output, !is_keyboard_left(), keyball.scroll_mode ^ keyball.this_have_ball);
+    motion_to_mouse(&keyball.this_motion, this_report, &output, is_keyboard_left(), keyball.scroll_mode);
+    motion_to_mouse(&keyball.that_motion, that_report, &output, !is_keyboard_left(), keyball.scroll_mode ^ keyball.this_have_ball);
     // store mouse report for OLED.
     keyball.last_mouse = output;
     return output;
@@ -478,7 +524,7 @@ void keyboard_post_init_kb(void) {
     }
 #endif
 
-    keyball.this_have_ball = pmw33xx_init_ok;
+    keyball.this_have_ball = pointing_device_get_status() == POINTING_DEVICE_STATUS_SUCCESS;
     keyball_set_cpi(CPI_DEFAULT);
 
     // read keyball configuration from EEPROM
@@ -559,9 +605,9 @@ bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
 
     switch (keycode) {
 #ifndef MOUSEKEY_ENABLE
-        // process KC_MS_BTN1~8 by myself
+        // process MS_BTN1~8 by myself
         // See process_action() in quantum/action.c for details.
-        case KC_MS_BTN1 ... KC_MS_BTN8: {
+        case MS_BTN1 ... MS_BTN8: {
             extern void register_mouse(uint8_t mouse_keycode, bool pressed);
             register_mouse(keycode, record->event.pressed);
             // to apply QK_MODS actions, allow to process others.

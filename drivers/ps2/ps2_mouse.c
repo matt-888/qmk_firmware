@@ -49,21 +49,38 @@ static inline bool side_has_trackpoint(void) {
 
 /* ============================= IMPLEMENTATION ============================ */
 
+// Host drivers without a teardown fall back to a no-op; the RP2040 vendor driver
+// provides a real one so a failed init can release the bus pins.
+__attribute__((weak)) void ps2_host_deinit(void) {}
+
 /* supports only 3 button mouse at this time */
-void ps2_mouse_init(void) {
+bool ps2_mouse_init(void) {
     if (!side_has_trackpoint()) {
-        return;
+        return true;
     }
 
     ps2_host_init();
 
     wait_ms(PS2_MOUSE_INIT_DELAY); // wait for powering up
 
+    // The send/receive macros only log errors, so latch ps2_error across the
+    // reset handshake: it stays clear only if the device actually answered.
+    ps2_error = PS2_ERR_NONE;
+
     PS2_MOUSE_SEND(PS2_MOUSE_RESET, "ps2_mouse_init: sending reset");
     // Spec calls for 500ms sleep after reset.
     wait_ms(500);
 
     PS2_MOUSE_RECEIVE("ps2_mouse_init: read BAT");
+    if (ps2_error != PS2_ERR_NONE) {
+        // No response: there's no trackpoint on this half (e.g. USB plugged into
+        // the wrong half of a split). Report the failure honestly so
+        // pointing_device_get_status() reflects reality, and tear the host driver
+        // down so the caller can repurpose the pins: a state machine stalled
+        // mid-frame would otherwise keep driving them.
+        ps2_host_deinit();
+        return false;
+    }
     PS2_MOUSE_RECEIVE("ps2_mouse_init: read DevID");
 
 #ifdef PS2_MOUSE_USE_REMOTE_MODE
@@ -83,6 +100,7 @@ void ps2_mouse_init(void) {
 
     ps2_mouse_init_user();
 
+    return true;
 }
 
 __attribute__((weak)) void ps2_mouse_init_user(void) {}
