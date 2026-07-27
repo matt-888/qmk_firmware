@@ -38,7 +38,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define HM_COPY  LCTL_T(KC_COPY)
 #define HM_PASTE LSFT_T(KC_PASTE)
 
-// Tap Z; hold on layer 1 for half-speed pointer movement.
+// Tap Z; hold on layer 1 for 40% pointer and scrolling speed.
 #define PR_Z LT(4, KC_Z)
 
 // clang-format off
@@ -88,14 +88,18 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 static bool    precision_mode    = false;
 static int16_t precision_accum_x = 0;
 static int16_t precision_accum_y = 0;
+static int16_t precision_scroll_accum_x = 0;
+static int16_t precision_scroll_accum_y = 0;
 
 // Morph LCtrl+I into LCtrl+K (only when LCtrl is the sole active modifier).
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     if (keycode == PR_Z) {
         precision_mode = record->event.pressed;
         if (!precision_mode) {
-            precision_accum_x = 0;
-            precision_accum_y = 0;
+            precision_accum_x        = 0;
+            precision_accum_y        = 0;
+            precision_scroll_accum_x = 0;
+            precision_scroll_accum_y = 0;
         }
     }
 
@@ -115,13 +119,13 @@ void keyball_on_apply_motion_to_mouse_move(report_mouse_t *report, report_mouse_
         return;
     }
 
-    // Retain odd motion counts so half-speed movement remains smooth.
-    precision_accum_x += report->x;
-    precision_accum_y += report->y;
-    output->x = precision_accum_x / 2;
-    output->y = precision_accum_y / 2;
-    precision_accum_x -= output->x * 2;
-    precision_accum_y -= output->y * 2;
+    // Retain fractional motion counts so 40% movement remains smooth.
+    precision_accum_x += report->x * 2;
+    precision_accum_y += report->y * 2;
+    output->x = precision_accum_x / 5;
+    output->y = precision_accum_y / 5;
+    precision_accum_x -= output->x * 5;
+    precision_accum_y -= output->y * 5;
     (void)is_left;
 }
 
@@ -136,8 +140,22 @@ static int16_t scroll_accum_x = 0;
 static int16_t scroll_accum_y = 0;
 
 void keyball_on_apply_motion_to_mouse_scroll(report_mouse_t *report, report_mouse_t *output, bool is_left) {
-    scroll_accum_x += report->x;
-    scroll_accum_y += report->y;
+    if (precision_mode) {
+        // Keep the 2/5 remainder separately from the scroll-divisor remainder.
+        precision_scroll_accum_x += report->x * 2;
+        precision_scroll_accum_y += report->y * 2;
+        int16_t x = precision_scroll_accum_x / 5;
+        int16_t y = precision_scroll_accum_y / 5;
+        precision_scroll_accum_x -= x * 5;
+        precision_scroll_accum_y -= y * 5;
+        scroll_accum_x += x;
+        scroll_accum_y += y;
+    } else {
+        scroll_accum_x += report->x;
+        scroll_accum_y += report->y;
+    }
+    report->x = 0;
+    report->y = 0;
 
     int16_t div = 1 << (keyball_get_scroll_div() - 1);
     int16_t x   = scroll_accum_x / div;
