@@ -86,20 +86,27 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 // clang-format on
 
 static bool    precision_mode    = false;
-static int16_t precision_accum_x = 0;
-static int16_t precision_accum_y = 0;
-static int16_t precision_scroll_accum_x = 0;
-static int16_t precision_scroll_accum_y = 0;
+static int32_t precision_accum_x = 0;
+static int32_t precision_accum_y = 0;
+static int32_t precision_accum_h = 0;
+static int32_t precision_accum_v = 0;
+
+static int16_t precision_scale(int16_t motion, int32_t *accum) {
+    *accum += motion * 2;
+    int16_t scaled = *accum / 5;
+    *accum -= scaled * 5;
+    return scaled;
+}
 
 // Morph LCtrl+I into LCtrl+K (only when LCtrl is the sole active modifier).
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     if (keycode == PR_Z) {
         precision_mode = record->event.pressed;
         if (!precision_mode) {
-            precision_accum_x        = 0;
-            precision_accum_y        = 0;
-            precision_scroll_accum_x = 0;
-            precision_scroll_accum_y = 0;
+            precision_accum_x = 0;
+            precision_accum_y = 0;
+            precision_accum_h = 0;
+            precision_accum_v = 0;
         }
     }
 
@@ -112,57 +119,15 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     return true;
 }
 
-void keyball_on_apply_motion_to_mouse_move(report_mouse_t *report, report_mouse_t *output, bool is_left) {
+report_mouse_t pointing_device_task_user(report_mouse_t report) {
     if (!precision_mode) {
-        output->x = report->x;
-        output->y = report->y;
-        return;
+        return report;
     }
 
-    // Retain fractional motion counts so 40% movement remains smooth.
-    precision_accum_x += report->x * 2;
-    precision_accum_y += report->y * 2;
-    output->x = precision_accum_x / 5;
-    output->y = precision_accum_y / 5;
-    precision_accum_x -= output->x * 5;
-    precision_accum_y -= output->y * 5;
-    (void)is_left;
-}
-
-// Override the upstream weak scroll handler.
-//
-// We keep our own residual accumulator because the upstream caller zeroes the
-// per-poll motion report after this function returns, which would otherwise
-// discard any motion smaller than the scroll divisor and break slow scrolling.
-//
-// Both axes are inverted from the upstream defaults to match natural scrolling.
-static int16_t scroll_accum_x = 0;
-static int16_t scroll_accum_y = 0;
-
-void keyball_on_apply_motion_to_mouse_scroll(report_mouse_t *report, report_mouse_t *output, bool is_left) {
-    if (precision_mode) {
-        // Keep the 2/5 remainder separately from the scroll-divisor remainder.
-        precision_scroll_accum_x += report->x * 2;
-        precision_scroll_accum_y += report->y * 2;
-        int16_t x = precision_scroll_accum_x / 5;
-        int16_t y = precision_scroll_accum_y / 5;
-        precision_scroll_accum_x -= x * 5;
-        precision_scroll_accum_y -= y * 5;
-        scroll_accum_x += x;
-        scroll_accum_y += y;
-    } else {
-        scroll_accum_x += report->x;
-        scroll_accum_y += report->y;
-    }
-    report->x = 0;
-    report->y = 0;
-
-    int16_t div = 1 << (keyball_get_scroll_div() - 1);
-    int16_t x   = scroll_accum_x / div;
-    int16_t y   = scroll_accum_y / div;
-    scroll_accum_x -= x * div;
-    scroll_accum_y -= y * div;
-
-    output->h = (x > 127) ? 127 : (x < -127) ? -127 : x;
-    output->v = (y > 127) ? 127 : (y < -127) ? -127 : -y;
+    // Scale the final report so Keyball's native scroll-divider logic remains intact.
+    report.x = precision_scale(report.x, &precision_accum_x);
+    report.y = precision_scale(report.y, &precision_accum_y);
+    report.h = precision_scale(report.h, &precision_accum_h);
+    report.v = precision_scale(report.v, &precision_accum_v);
+    return report;
 }
